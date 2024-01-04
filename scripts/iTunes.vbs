@@ -1,0 +1,1 @@
+createobject("wscript.shell").run "D:\ToolsForITunes\iTunes.bat",0
