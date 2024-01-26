@@ -81,7 +81,7 @@ impl Query {
             let search_body = search_response.text()?;
             let search_result: SearchResult = serde_json::from_str(&search_body)?;
 
-            let target_artist_name = String::from(artist); // Replace with the artist name you are looking for
+            let target_artist_name = String::from(artist);
 
             let song_id = search_result
                 .result
