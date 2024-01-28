@@ -4,6 +4,7 @@ use log::error;
 use log::info;
 use log::warn;
 use lrc::Lyrics;
+use lrc::TimeTag;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -128,7 +129,14 @@ impl Query {
                         }
                     }
                 }
-                new_lyrics.add_timed_line(time_tag.clone(), line)?;
+                if name.to_lowercase() == "shanghai breezes" {
+                    let new_start = std::cmp::max(0, time_tag.get_timestamp() - 5000);
+                    let new_time_tag = TimeTag::new(new_start);
+
+                    new_lyrics.add_timed_line(new_time_tag, text)?;
+                } else {
+                    new_lyrics.add_timed_line(time_tag.clone(), text)?;
+                }
             }
             *lyrics = Some(new_lyrics);
             Ok(true)
