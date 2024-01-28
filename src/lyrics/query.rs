@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use log::error;
@@ -5,6 +6,7 @@ use log::info;
 use log::warn;
 use lrc::Lyrics;
 use lrc::TimeTag;
+use regex::Regex;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -44,6 +46,14 @@ struct LyricsResponse {
 #[derive(Deserialize)]
 struct Lrc {
     lyric: String,
+}
+
+fn convert_lyrics(lyrics: String) -> Result<String, Box<dyn Error>> {
+    // 创建正则表达式
+    let re = Regex::new(r"\[(\d{2}:\d{2}\.\d{2})\d\]")?;
+    // 替换匹配的时间戳
+    let result = re.replace_all(&lyrics, "[$1]");
+    Ok(result.to_string())
 }
 
 impl Query {
@@ -106,7 +116,10 @@ impl Query {
 
             // 解析 JSON 并提取歌词
             let lyrics_json: LyricsResponse = serde_json::from_str(&lyrics_body)?;
-            let actual_lyrics = lyrics_json.lrc.lyric;
+            let mut actual_lyrics = lyrics_json.lrc.lyric;
+
+            // 处理歌词中的每个时间标记
+            actual_lyrics = convert_lyrics(actual_lyrics)?;
 
             // 使用原有逻辑处理歌词
             let downloaded_lyrics = Lyrics::from_str(&actual_lyrics).map_err(|e| {
@@ -133,7 +146,7 @@ impl Query {
                     let new_start = std::cmp::max(0, time_tag.get_timestamp() - 5000);
                     let new_time_tag = TimeTag::new(new_start);
 
-                    new_lyrics.add_timed_line(new_time_tag, text)?;
+                    new_lyrics.add_timed_line(new_time_tag.clone(), text)?;
                 } else {
                     new_lyrics.add_timed_line(time_tag.clone(), text)?;
                 }
