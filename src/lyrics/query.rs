@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::Read;
 use std::time::Duration;
 
 use log::error;
@@ -56,6 +57,29 @@ fn convert_lyrics(lyrics: String) -> Result<String, Box<dyn Error>> {
     Ok(result.to_string())
 }
 
+fn check_exist(song_id: u32) -> bool {
+    let path = format!(
+        "E:\\Study\\Projectlearning\\amll-ttml-db\\lrclib\\{}.lrc",
+        song_id
+    );
+    std::path::Path::new(&path).exists()
+}
+
+fn read_lrclib_file(song_id: u32) -> Result<String, Box<dyn Error>> {
+    // check
+    if !check_exist(song_id) {
+        return Ok(String::new());
+    }
+    let path = format!(
+        "E:\\Study\\Projectlearning\\amll-ttml-db\\lrclib\\{}.lrc",
+        song_id
+    );
+    let mut file = std::fs::File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
 impl Query {
     pub fn new() -> Self {
         let client = Client::builder()
@@ -107,16 +131,25 @@ impl Query {
                 .ok_or("Song not found")?;
 
             // 第二步：使用歌曲 ID 获取歌词
-            let lyrics_response = self
-                .client
-                .get(&format!("http://localhost:3000/lyric?id={}", song_id))
-                .send()?
-                .error_for_status()?;
-            let lyrics_body = lyrics_response.text()?;
+            // first use manual lyrics in E:\Study\Projectlearning\amll-ttml-db\lrclib\
+            // "E:\Study\Projectlearning\amll-ttml-db\lrclib\72394.lrc"
+            let mut actual_lyrics = read_lrclib_file(song_id)?;
+            if actual_lyrics.is_empty() {
+                // if not exist, use api
+                let lyrics_response = self
+                    .client
+                    .get(&format!("http://localhost:3000/lyric?id={}", song_id))
+                    .send()?
+                    .error_for_status()?;
+                let lyrics_body = lyrics_response.text()?;
 
-            // 解析 JSON 并提取歌词
-            let lyrics_json: LyricsResponse = serde_json::from_str(&lyrics_body)?;
-            let mut actual_lyrics = lyrics_json.lrc.lyric;
+                // 解析 JSON 并提取歌词
+                let lyrics_json: LyricsResponse = serde_json::from_str(&lyrics_body)?;
+                actual_lyrics = lyrics_json.lrc.lyric;
+
+                // 处理歌词中的每个时间标记
+                actual_lyrics = convert_lyrics(actual_lyrics)?;
+            }
 
             // 处理歌词中的每个时间标记
             actual_lyrics = convert_lyrics(actual_lyrics)?;
